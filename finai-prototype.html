@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FinAI Advisor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#ffffff; --surface:#f7f8fa; --border:#e5e7eb;
+  --text:#1f2328; --muted:#57606a;
+  --accent:#3b82d4; --accent-light:#eff6ff;
+  --purple:#7c5cd8; --purple-light:#f3f0ff;
+  --green:#16a34a; --green-light:#dcfce7;
+  --red:#dc2626;   --red-light:#fee2e2;
+  --yellow:#ca8a04;--yellow-light:#fefce8;
+  --radius:8px;
+}
+html, body { height:100%; overflow:hidden; font-family:-apple-system,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.6; color:var(--text); background:var(--bg); }
+
+/* ── FULL-SCREEN AUTH ── */
+#auth-wall {
+  position:fixed; inset:0; background:var(--surface);
+  display:flex; align-items:center; justify-content:center; z-index:200;
+}
+#auth-wall.hidden { display:none; }
+.auth-card { background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:36px 32px; width:380px; box-shadow:0 2px 16px rgba(0,0,0,.09); }
+.auth-logo { font-size:22px; font-weight:800; color:var(--accent); margin-bottom:3px; }
+.auth-logo span { color:var(--purple); }
+.auth-tagline { font-size:12.5px; color:var(--muted); margin-bottom:24px; }
+.auth-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:20px; }
+.auth-tab { padding:8px 16px; cursor:pointer; font-size:13px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; }
+.auth-tab.active { color:var(--accent); border-color:var(--accent); }
+.fg { margin-bottom:14px; }
+.fg label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+.fg input { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:13.5px; outline:none; }
+.fg input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,212,.12); }
+.auth-form { display:none; } .auth-form.active { display:block; }
+.auth-err { font-size:12px; color:var(--red); background:var(--red-light); padding:7px 10px; border-radius:5px; margin-bottom:12px; display:none; }
+
+/* ── APP SHELL ── */
+#app { display:flex; height:100vh; overflow:hidden; }
+
+/* ── SIDEBAR ── */
+#sidebar { width:220px; min-width:220px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+.logo { padding:16px 16px 12px; font-weight:800; font-size:16px; color:var(--accent); flex-shrink:0; }
+.logo span { color:var(--purple); }
+.nav-section { font-size:10.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; padding:8px 16px 3px; flex-shrink:0; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:8px 16px; cursor:pointer; color:var(--muted); font-size:13.5px; position:relative; flex-shrink:0; }
+.nav-item:hover { background:var(--border); color:var(--text); }
+.nav-item.active { background:var(--accent-light); color:var(--accent); font-weight:600; }
+.nav-item.active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); border-radius:0 2px 2px 0; }
+.nav-icon { font-size:15px; width:20px; text-align:center; }
+.badge { background:var(--red); color:#fff; font-size:10px; font-weight:700; border-radius:10px; padding:1px 6px; margin-left:auto; }
+.badge-stage { background:var(--accent); color:#fff; font-size:10px; font-weight:600; border-radius:10px; padding:1px 6px; margin-left:auto; }
+.stage-progress { padding:12px 16px; border-top:1px solid var(--border); flex-shrink:0; }
+.stage-progress label { font-size:10.5px; color:var(--muted); font-weight:700; display:block; margin-bottom:7px; text-transform:uppercase; letter-spacing:.5px; }
+.stage-row { display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:5px; }
+.stage-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.stage-dot.done { background:var(--green); } .stage-dot.active-dot { background:var(--accent); } .stage-dot.inactive { background:var(--border); }
+.stage-pct { color:var(--muted); font-size:11px; margin-left:auto; }
+.user-row { display:flex; align-items:center; gap:8px; padding:10px 16px; border-top:1px solid var(--border); flex-shrink:0; }
+.avatar { width:28px; height:28px; border-radius:50%; background:var(--purple); color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.user-name { font-size:12.5px; font-weight:600; line-height:1.3; }
+.user-email { font-size:10.5px; color:var(--muted); }
+.logout-btn { margin-left:auto; font-size:11px; color:var(--muted); cursor:pointer; padding:3px 6px; border-radius:4px; border:1px solid var(--border); }
+.logout-btn:hover { color:var(--red); border-color:var(--red); background:var(--red-light); }
+
+/* ── MAIN ── */
+#main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+.topbar { height:50px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 24px; gap:12px; flex-shrink:0; }
+.topbar-title { font-size:15px; font-weight:700; }
+.topbar-sub { font-size:12px; color:var(--muted); }
+.topbar-actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
+.icon-btn { width:32px; height:32px; border:1px solid var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; position:relative; background:var(--bg); }
+.icon-btn:hover { background:var(--surface); }
+.notif-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; background:var(--red); border-radius:50%; }
+
+/* ── SCREENS — fill remaining height, never scroll the outer page ── */
+#content { flex:1; overflow:hidden; position:relative; }
+.screen { display:none; position:absolute; inset:0; overflow-y:auto; padding:24px; }
+.screen.active { display:block; }
+
+/* ── TYPOGRAPHY ── */
+.page-title { font-size:18px; font-weight:700; margin-bottom:3px; }
+.page-sub { font-size:13px; color:var(--muted); margin-bottom:18px; }
+
+/* ── GRID ── */
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+
+/* ── CARD ── */
+.card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+.card-title { font-size:13px; font-weight:700; margin-bottom:8px; }
+.card-muted { font-size:12px; color:var(--muted); }
+
+/* ── BUTTONS ── */
+.btn { padding:8px 18px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
+.btn-primary { background:var(--accent); color:#fff; } .btn-primary:hover { background:#2563c0; }
+.btn-outline { background:var(--bg); color:var(--accent); border:1px solid var(--accent); } .btn-outline:hover { background:var(--accent-light); }
+.btn-green { background:var(--green); color:#fff; } .btn-green:hover { background:#15803d; }
+.btn-red { background:var(--red); color:#fff; }
+.btn-ghost { background:var(--surface); color:var(--muted); border:1px solid var(--border); } .btn-ghost:hover { color:var(--text); }
+.btn-wide { width:100%; }
+
+/* ── STAT BOX ── */
+.stat-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; text-align:center; }
+.stat-val { font-size:20px; font-weight:700; }
+.stat-lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+
+/* ── MASTERY BAR ── */
+.mastery-bar { height:6px; border-radius:3px; background:var(--border); }
+.mastery-fill { height:100%; border-radius:3px; background:var(--accent); transition:width .4s; }
+
+/* ── TAG ── */
+.tag { display:inline-block; font-size:11px; padding:2px 7px; border-radius:8px; background:var(--surface); border:1px solid var(--border); color:var(--muted); margin:2px; }
+.tag-green { background:var(--green-light); color:var(--green); border-color:var(--green); }
+.tag-yellow { background:var(--yellow-light); color:var(--yellow); border-color:#d97706; }
+.divider { height:1px; background:var(--border); margin:14px 0; }
+
+/* ── DASHBOARD BANNER ── */
+.welcome-banner { background:var(--accent-light); border:1px solid #bfdbfe; border-radius:10px; padding:18px 22px; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.welcome-banner h2 { font-size:16px; font-weight:700; margin-bottom:3px; }
+.welcome-banner p { font-size:13px; color:var(--muted); }
+
+/* ── LEARN ── */
+.term-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
+.term-title { font-size:17px; font-weight:700; margin-bottom:4px; }
+.term-badge { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--yellow-light); color:var(--yellow); margin-bottom:10px; }
+.term-def { font-size:13.5px; line-height:1.7; margin-bottom:14px; }
+.ai-explain { background:var(--accent-light); border:1px solid #bfdbfe; border-radius:8px; padding:12px 14px; font-size:13px; color:#1e40af; margin-bottom:14px; }
+.ai-explain strong { display:block; font-size:11.5px; color:var(--accent); margin-bottom:4px; }
+.quiz-box { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; }
+.quiz-q { font-size:13px; font-weight:600; margin-bottom:10px; }
+.quiz-options { display:flex; flex-direction:column; gap:7px; }
+.quiz-opt { padding:8px 12px; border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:13px; background:var(--bg); transition:border-color .12s,background .12s; }
+.quiz-opt:not(.locked):hover { border-color:var(--accent); background:var(--accent-light); }
+.quiz-opt.correct { border-color:var(--green); background:var(--green-light); color:var(--green); font-weight:600; }
+.quiz-opt.wrong { border-color:var(--red); background:var(--red-light); color:var(--red); }
+.quiz-opt.locked { cursor:default; }
+.quiz-feedback { margin-top:10px; font-size:12.5px; padding:8px 10px; border-radius:6px; display:none; }
+.quiz-feedback.show { display:block; }
+.quiz-feedback.ok { background:var(--green-light); color:var(--green); }
+.quiz-feedback.bad { background:var(--red-light); color:var(--red); }
+
+/* ── SIMULATE ── */
+.scenario-card { background:#fff8dc; border:1px solid #e8c840; border-radius:10px; padding:16px; margin-bottom:14px; }
+.scenario-event { font-size:14px; font-weight:700; color:#6b4300; margin-bottom:5px; }
+.scenario-detail { font-size:13px; color:#5c3d00; line-height:1.6; margin-bottom:12px; }
+.trade-btns { display:flex; gap:8px; flex-wrap:wrap; }
+.ai-coach { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; margin-top:12px; font-size:13px; color:var(--muted); display:none; }
+.ai-coach.show { display:block; }
+.ai-coach strong { color:var(--text); display:block; margin-bottom:4px; font-size:12px; }
+.portfolio-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.portfolio-row:last-child { border:none; }
+.pnl-pos { color:var(--green); font-weight:600; }
+.pnl-neg { color:var(--red); font-weight:600; }
+
+/* ── SELECT ── */
+.option-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+.option-card { background:var(--bg); border:2px solid var(--border); border-radius:10px; padding:15px; cursor:pointer; transition:border-color .15s,background .15s; }
+.option-card:hover { border-color:var(--accent); background:var(--accent-light); }
+.option-card.selected { border-color:var(--accent); background:var(--accent-light); }
+.option-icon { font-size:24px; margin-bottom:5px; }
+.option-name { font-size:13.5px; font-weight:700; margin-bottom:4px; }
+.risk-badge { display:inline-block; font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:8px; margin-bottom:7px; }
+.risk-low { background:var(--green-light); color:var(--green); }
+.risk-med { background:var(--yellow-light); color:var(--yellow); }
+.risk-high { background:var(--red-light); color:var(--red); }
+.option-desc { font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:8px; }
+.pros-cons { font-size:12px; }
+.pro-item { color:var(--green); } .pro-item::before { content:'✓ '; }
+.con-item { color:var(--red); }  .con-item::before { content:'✗ '; }
+.select-bar { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--border); }
+.select-status { font-size:13px; color:var(--muted); flex:1; }
+
+/* ── INVEST ── */
+.mode-pill { font-size:12px; font-weight:700; padding:3px 12px; border-radius:20px; border:1px solid; }
+.mode-paper { background:var(--green-light); color:var(--green); border-color:var(--green); }
+.mode-live  { background:var(--red-light);   color:var(--red);   border-color:var(--red); }
+.ticker-search { display:flex; gap:8px; margin-bottom:12px; }
+.ticker-search input { flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:13.5px; outline:none; }
+.ticker-search input:focus { border-color:var(--accent); }
+.ticker-result { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:14px; display:none; }
+.ticker-result.show { display:block; }
+.ticker-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+.ticker-name { font-size:14px; font-weight:700; }
+.ticker-price { font-size:18px; font-weight:700; color:var(--green); }
+.order-row { display:flex; gap:10px; align-items:center; margin-bottom:11px; }
+.order-row label { font-size:12px; font-weight:600; width:60px; flex-shrink:0; }
+.order-row select, .order-row input { flex:1; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font-size:13px; outline:none; }
+
+/* ── ALERTS ── */
+.alert-item { display:flex; gap:10px; padding:12px 0; border-bottom:1px solid var(--border); }
+.alert-item:last-child { border:none; }
+.alert-icon { font-size:18px; width:26px; text-align:center; flex-shrink:0; }
+.alert-text { flex:1; }
+.alert-headline { font-size:13.5px; font-weight:600; margin-bottom:2px; }
+.alert-rec { font-size:12.5px; color:var(--muted); margin-bottom:4px; line-height:1.5; }
+.alert-time { font-size:11px; color:var(--muted); }
+.alert-learn-link { font-size:12px; color:var(--accent); cursor:pointer; text-decoration:underline; }
+.unseen-dot { width:8px; height:8px; background:var(--red); border-radius:50%; margin-top:6px; flex-shrink:0; }
+
+/* ── MODAL ── */
+.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:300; align-items:center; justify-content:center; }
+.overlay.show { display:flex; }
+.modal { background:var(--bg); border-radius:12px; padding:24px; width:360px; border:1px solid var(--border); box-shadow:0 8px 32px rgba(0,0,0,.15); }
+.modal-title { font-size:16px; font-weight:700; margin-bottom:8px; }
+.modal-body { font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.7; }
+.modal-btns { display:flex; gap:8px; justify-content:flex-end; }
+
+/* ── AI CHAT BUBBLE ── */
+#ai-bubble { position:fixed; bottom:22px; right:22px; z-index:150; }
+.bubble-btn { width:48px; height:48px; border-radius:50%; background:var(--purple); color:#fff; border:none; font-size:20px; cursor:pointer; box-shadow:0 4px 14px rgba(124,92,216,.4); display:flex; align-items:center; justify-content:center; }
+.chat-panel { display:none; position:absolute; bottom:58px; right:0; width:300px; background:var(--bg); border:1px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:hidden; flex-direction:column; }
+.chat-panel.open { display:flex; }
+.chat-header { background:var(--purple); color:#fff; padding:10px 14px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+.chat-close { cursor:pointer; font-size:14px; opacity:.8; }
+.chat-close:hover { opacity:1; }
+.chat-messages { height:220px; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+.msg { font-size:12.5px; padding:8px 10px; border-radius:8px; max-width:92%; line-height:1.5; }
+.msg.ai { background:var(--surface); color:var(--text); align-self:flex-start; }
+.msg.user { background:var(--purple); color:#fff; align-self:flex-end; }
+.msg-text { display:inline; }
+.chat-input-row { display:flex; border-top:1px solid var(--border); }
+.chat-input-row input { flex:1; padding:8px 10px; border:none; font-size:13px; outline:none; }
+.chat-send { padding:8px 14px; background:var(--purple); color:#fff; border:none; font-size:13px; cursor:pointer; font-weight:600; }
+/* ── TRUST LAYER ── */
+/* disclaimer banner */
+#disclaimer-banner { background:#fefce8; border-bottom:1px solid #fde68a; padding:9px 20px; display:flex; align-items:center; gap:10px; font-size:12px; color:#78350f; flex-shrink:0; z-index:10; }
+#disclaimer-banner strong { color:#92400e; }
+#disclaimer-banner .disc-close { margin-left:auto; cursor:pointer; font-size:16px; color:#92400e; line-height:1; }
+#disclaimer-banner.hidden { display:none; }
+
+/* trust chip in topbar */
+.trust-chip { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:20px; cursor:pointer; border:1px solid; white-space:nowrap; }
+.trust-chip.high { background:var(--green-light); color:var(--green); border-color:var(--green); }
+.trust-chip.mid  { background:var(--yellow-light); color:var(--yellow); border-color:#d97706; }
+.trust-chip.low  { background:var(--red-light); color:var(--red); border-color:var(--red); }
+
+/* inline claim annotations */
+.claim { border-bottom:2px dotted; cursor:pointer; position:relative; }
+.claim-verified   { border-color:var(--green); }
+.claim-uncertain  { border-color:var(--yellow); }
+.claim-unverifiable { border-color:var(--red); }
+.claim-confirmed  { border-color:var(--green); border-style:solid; }
+.claim-qualified  { border-color:var(--yellow); border-style:solid; }
+.claim-retracted  { border-color:var(--red); border-style:solid; text-decoration:line-through; }
+
+sup.cbadge { font-size:9px; font-weight:800; padding:0 3px; border-radius:4px; margin-left:1px; vertical-align:super; line-height:1; }
+.cbadge-verified   { background:var(--green-light); color:var(--green); }
+.cbadge-uncertain  { background:var(--yellow-light); color:var(--yellow); }
+.cbadge-unverifiable { background:var(--red-light); color:var(--red); }
+
+/* trust summary line beneath each AI message */
+.trust-summary { font-size:10.5px; color:var(--muted); margin-top:5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.trust-summary .ts-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+.factcheck-btn { font-size:10.5px; color:var(--accent); cursor:pointer; margin-left:auto; text-decoration:underline; white-space:nowrap; }
+
+/* claim tooltip */
+.claim-tip { display:none; position:fixed; z-index:500; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:10px 12px; width:240px; box-shadow:0 4px 16px rgba(0,0,0,.12); font-size:12px; line-height:1.5; }
+.claim-tip.show { display:block; }
+.claim-tip-title { font-weight:700; margin-bottom:3px; font-size:11.5px; }
+.claim-tip-reason { color:var(--muted); margin-bottom:6px; }
+.claim-tip-sources a { display:block; color:var(--accent); text-decoration:none; font-size:11px; margin-bottom:2px; }
+.claim-tip-sources a:hover { text-decoration:underline; }
+
+/* challenge panel */
+#challenge-panel { position:fixed; top:0; right:-360px; width:340px; height:100vh; background:var(--bg); border-left:1px solid var(--border); z-index:400; display:flex; flex-direction:column; transition:right .25s; box-shadow:-4px 0 16px rgba(0,0,0,.08); }
+#challenge-panel.open { right:0; }
+.cp-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.cp-title { font-size:14px; font-weight:700; flex:1; }
+.cp-close { cursor:pointer; font-size:18px; color:var(--muted); }
+.cp-close:hover { color:var(--text); }
+.cp-body { flex:1; overflow-y:auto; padding:14px; }
+.cp-excerpt { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:14px; }
+.claim-row { border:1px solid var(--border); border-radius:8px; padding:11px 12px; margin-bottom:10px; }
+.claim-row-text { font-size:12.5px; font-weight:600; margin-bottom:4px; }
+.claim-row-conf { font-size:11px; margin-bottom:8px; }
+.claim-row-conf .c-v { color:var(--green); } .claim-row-conf .c-u { color:var(--yellow); } .claim-row-conf .c-n { color:var(--red); }
+.challenge-btn { font-size:11.5px; padding:4px 12px; border-radius:5px; cursor:pointer; background:var(--surface); border:1px solid var(--border); color:var(--text); font-weight:600; }
+.challenge-btn:hover { border-color:var(--accent); color:var(--accent); }
+.challenge-btn:disabled { opacity:.5; cursor:default; }
+.review-result { margin-top:8px; padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.5; display:none; }
+.review-result.show { display:block; }
+.review-confirmed  { background:var(--green-light); color:#14532d; }
+.review-qualified  { background:var(--yellow-light); color:#713f12; }
+.review-retracted  { background:var(--red-light); color:#7f1d1d; }
+.review-source { font-size:11px; margin-top:5px; }
+.review-source a { color:var(--accent); }
+.spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; margin-right:5px; vertical-align:middle; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* trust log screen */
+.tl-filter-bar { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+.tl-filter { font-size:12px; padding:4px 12px; border-radius:20px; cursor:pointer; border:1px solid var(--border); background:var(--surface); color:var(--muted); }
+.tl-filter.active { background:var(--accent-light); color:var(--accent); border-color:var(--accent); font-weight:600; }
+.tl-summary { background:var(--accent-light); border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px; font-size:12.5px; color:#1e40af; margin-bottom:14px; display:flex; gap:16px; flex-wrap:wrap; }
+.tl-item { border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+.tl-item-header { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; background:var(--bg); }
+.tl-item-header:hover { background:var(--surface); }
+.tl-module { font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:8px; background:var(--surface); border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
+.tl-excerpt { flex:1; font-size:12.5px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tl-badges { display:flex; gap:4px; flex-shrink:0; }
+.tl-ts { font-size:11px; color:var(--muted); white-space:nowrap; flex-shrink:0; }
+.tl-item-body { display:none; padding:12px 14px; border-top:1px solid var(--border); background:var(--surface); font-size:12.5px; line-height:1.6; }
+.tl-item-body.open { display:block; }
+.tl-sources { margin-top:8px; }
+.tl-sources a { display:inline-block; margin-right:10px; font-size:11.5px; color:var(--accent); }
+.source-attr { font-size:11px; color:var(--muted); margin-top:6px; }
+.source-attr a { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ════ AUTH WALL ════ -->
+<div id="auth-wall">
+  <div class="auth-card">
+    <div class="auth-logo">FinAI <span>Advisor</span></div>
+    <div class="auth-tagline">Your AI-powered personal investment guide</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login">Sign In</div>
+      <div class="auth-tab" id="tab-register">Register</div>
+    </div>
+    <div id="auth-err" class="auth-err">Invalid credentials — use <strong>demo@finai.app / demo123</strong></div>
+
+    <div id="form-login" class="auth-form active">
+      <div class="fg"><label>Email</label><input id="l-email" type="email" value="demo@finai.app" /></div>
+      <div class="fg"><label>Password</label><input id="l-pw" type="password" value="demo123" /></div>
+      <button class="btn btn-primary btn-wide" id="btn-login">Sign In →</button>
+    </div>
+
+    <div id="form-register" class="auth-form">
+      <div class="fg"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com" /></div>
+      <div class="fg"><label>Password</label><input id="r-pw" type="password" placeholder="Min 8 characters" /></div>
+      <div class="fg"><label>Confirm</label><input id="r-pw2" type="password" placeholder="Repeat password" /></div>
+      <button class="btn btn-primary btn-wide" id="btn-register">Create Account →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ APP ════ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="logo">FinAI <span>Advisor</span></div>
+    <div class="nav-section">Modules</div>
+    <div class="nav-item" data-screen="dashboard"><span class="nav-icon">🏠</span> Dashboard</div>
+    <div class="nav-item" data-screen="learn"><span class="nav-icon">📚</span> Learn <span class="badge-stage">Stage 1</span></div>
+    <div class="nav-item" data-screen="simulate"><span class="nav-icon">🎮</span> Simulate</div>
+    <div class="nav-item" data-screen="select"><span class="nav-icon">🧭</span> Select</div>
+    <div class="nav-item" data-screen="invest"><span class="nav-icon">📈</span> Invest</div>
+    <div class="nav-section" style="margin-top:6px">Account</div>
+    <div class="nav-item" data-screen="alerts"><span class="nav-icon">🔔</span> Alerts <span class="badge" id="alert-badge">3</span></div>
+    <div class="nav-item" data-screen="profile"><span class="nav-icon">👤</span> Profile</div>
+    <div class="nav-item" data-screen="trustlog"><span class="nav-icon">🛡️</span> Trust Log <span class="badge" id="trust-badge" style="display:none"></span></div>
+    <div class="stage-progress">
+      <label>Your Progress</label>
+      <div class="stage-row"><div class="stage-dot done"></div><span>Learn</span><span class="stage-pct">42%</span></div>
+      <div class="stage-row"><div class="stage-dot active-dot"></div><span>Simulate</span><span class="stage-pct">10%</span></div>
+      <div class="stage-row"><div class="stage-dot inactive"></div><span>Select</span><span class="stage-pct">0%</span></div>
+      <div class="stage-row"><div class="stage-dot inactive"></div><span>Invest</span><span class="stage-pct">0%</span></div>
+    </div>
+    <div class="user-row">
+      <div class="avatar" id="user-avatar">JD</div>
+      <div><div class="user-name" id="user-name">Jane Doe</div><div class="user-email" id="user-email">demo@finai.app</div></div>
+      <div class="logout-btn" id="btn-logout" title="Logout">⏏</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- disclaimer banner -->
+    <div id="disclaimer-banner">
+      ⚠️ <strong>Educational use only.</strong> AI responses are not financial advice. Claims are auto-verified where possible — always check sources before investing.
+      <span class="disc-close" id="disc-close" title="Dismiss">×</span>
+    </div>
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+        <div class="topbar-sub" id="topbar-sub">Welcome back</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="trust-chip high" id="trust-chip" title="AI Trust Score — click to view Trust Log">🛡️ Trust: 100%</div>
+        <div class="icon-btn" id="topbar-alerts" title="Alerts">🔔<div class="notif-dot" id="notif-dot"></div></div>
+      </div>
+    </div>
+
+    <div id="content">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="screen active" id="screen-dashboard">
+        <div class="welcome-banner">
+          <div>
+            <h2>Good morning, Jane 👋</h2>
+            <p>You're in the <strong>Simulate</strong> phase — practice before going live.</p>
+          </div>
+          <button class="btn btn-primary" id="dash-simulate">Continue Simulating →</button>
+        </div>
+        <div class="grid3" style="margin-bottom:16px">
+          <div class="stat-box"><div class="stat-val" style="color:var(--accent)">$10,000</div><div class="stat-lbl">Sim Portfolio Value</div></div>
+          <div class="stat-box"><div class="stat-val" style="color:var(--green)">+$240</div><div class="stat-lbl">Sim P&amp;L Today</div></div>
+          <div class="stat-box"><div class="stat-val">7</div><div class="stat-lbl">Terms Mastered</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card" style="cursor:pointer" id="dash-learn-card">
+            <div class="card-title">📚 Next Term to Learn</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:3px">P/E Ratio</div>
+            <div class="card-muted" style="margin-bottom:8px">Price-to-earnings — a valuation metric. Difficulty: Medium</div>
+            <div class="mastery-bar"><div class="mastery-fill" style="width:20%"></div></div>
+            <div class="card-muted" style="margin-top:4px;font-size:11px">20% mastery · tap to study →</div>
+          </div>
+          <div class="card" style="cursor:pointer" id="dash-alert-card">
+            <div class="card-title">🔔 Latest Alert</div>
+            <div style="font-size:13.5px;font-weight:600;color:var(--red);margin-bottom:3px">AAPL ↓ 6.2% today</div>
+            <div class="card-muted" style="margin-bottom:8px">Apple dropped on earnings miss. AI recommendation ready.</div>
+            <span class="tag">Earnings</span><span class="tag">Technology</span>
+            <div class="card-muted" style="margin-top:6px;font-size:11px">tap to view alerts →</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LEARN ── -->
+      <div class="screen" id="screen-learn">
+        <div class="page-title">📚 Learn</div>
+        <div class="page-sub">Master finance terms one at a time. Answer correctly to unlock the next term.</div>
+
+        <!-- Term: P/E Ratio -->
+        <div class="term-card" id="term-pe">
+          <div class="term-title">P/E Ratio <span class="term-badge">Medium · 2/5</span></div>
+          <div class="term-def">The <strong>Price-to-Earnings ratio</strong> measures how much investors pay per dollar of earnings. Formula: <em>Stock Price ÷ EPS</em>. A high P/E may reflect growth expectations; a low P/E may signal undervaluation — or poor prospects.</div>
+          <div class="source-attr">Source: <a href="https://www.investopedia.com/terms/p/price-earningsratio.asp" target="_blank">Investopedia — Price-to-Earnings Ratio</a></div>
+          <div class="ai-explain">
+            <strong>🤖 AI Explanation</strong>
+            Think of it like buying a café. If it earns $10k/year and costs $150k, your P/E is 15 — you're paying 15 years of earnings upfront. A P/E of 30 means you're betting on strong future growth.
+          </div>
+          <div class="quiz-box">
+            <div class="quiz-q">A stock trades at $100 with EPS of $5. What is its P/E ratio?</div>
+            <div class="quiz-options" id="quiz-opts-pe">
+              <div class="quiz-opt" data-v="wrong">5</div>
+              <div class="quiz-opt" data-v="correct">20</div>
+              <div class="quiz-opt" data-v="wrong">500</div>
+              <div class="quiz-opt" data-v="wrong">0.05</div>
+            </div>
+            <div class="quiz-feedback" id="quiz-fb-pe"></div>
+          </div>
+        </div>
+
+        <!-- Term: Volatility (locked until P/E quiz passed) -->
+        <div class="term-card" id="term-vol" style="opacity:.45;pointer-events:none">
+          <div class="term-title">Volatility <span class="term-badge">Medium · 2/5</span></div>
+          <div class="term-def">Volatility measures how much a security's price fluctuates over time. A highly volatile asset swings widely; a low-volatility asset moves gradually. Measured by <em>standard deviation</em> or beta.</div>
+          <div class="source-attr">Source: <a href="https://www.investopedia.com/terms/v/volatility.asp" target="_blank">Investopedia — Volatility</a></div>
+          <div class="ai-explain">
+            <strong>🤖 AI Explanation</strong>
+            Imagine two rollercoasters — one with gentle hills, one with steep drops. Both go from A to B, but the stomach-churning one is more "volatile." Higher volatility = higher risk AND higher potential reward.
+          </div>
+          <div class="quiz-box">
+            <div class="quiz-q">A stock that swings 20% in a week vs one that moves 1% — which is more volatile?</div>
+            <div class="quiz-options" id="quiz-opts-vol">
+              <div class="quiz-opt" data-v="correct">The 20% swinging stock</div>
+              <div class="quiz-opt" data-v="wrong">The 1% moving stock</div>
+              <div class="quiz-opt" data-v="wrong">Both equally volatile</div>
+            </div>
+            <div class="quiz-feedback" id="quiz-fb-vol"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:3px" id="learn-progress-label">Overall mastery — 7 / 20 terms</div>
+            <div class="mastery-bar" style="height:8px"><div class="mastery-fill" id="learn-bar" style="width:35%"></div></div>
+          </div>
+          <button class="btn btn-outline" id="learn-next-btn" style="font-size:13px;padding:7px 14px">Next Term →</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Glossary</div>
+          <div style="margin-top:8px">
+            <span class="tag tag-green">✓ Asset</span>
+            <span class="tag tag-green">✓ Equity</span>
+            <span class="tag tag-green">✓ Bond</span>
+            <span class="tag tag-green">✓ ETF</span>
+            <span class="tag tag-green">✓ Dividend</span>
+            <span class="tag tag-green">✓ Index Fund</span>
+            <span class="tag tag-green">✓ Market Cap</span>
+            <span class="tag tag-yellow" id="gloss-pe">~ P/E Ratio</span>
+            <span class="tag" id="gloss-vol">Volatility</span>
+            <span class="tag">Liquidity</span>
+            <span class="tag">Compound Interest</span>
+            <span class="tag">Inflation</span>
+            <span class="tag">Yield</span>
+            <span class="tag">Short Selling</span>
+            <span class="tag">Risk Tolerance</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SIMULATE ── -->
+      <div class="screen" id="screen-simulate">
+        <div class="page-title">🎮 Simulate</div>
+        <div class="page-sub">Practice with $10,000 of virtual cash. The AI coaches you on every decision.</div>
+        <div class="grid3" style="margin-bottom:14px">
+          <div class="stat-box"><div class="stat-val" id="sim-cash">$8,420</div><div class="stat-lbl">Cash Available</div></div>
+          <div class="stat-box"><div class="stat-val" style="color:var(--green)" id="sim-invested">$1,820</div><div class="stat-lbl">Invested</div></div>
+          <div class="stat-box"><div class="stat-val" style="color:var(--green)" id="sim-pnl">+$240</div><div class="stat-lbl">Total P&amp;L</div></div>
+        </div>
+
+        <div id="sim-scenario-wrap">
+          <div class="scenario-card">
+            <div class="scenario-event" id="sim-event-title">📰 Market Event: Fed raises interest rates by 0.5%</div>
+            <div class="scenario-detail" id="sim-event-body">The Federal Reserve announced a surprise 0.5% rate hike, citing persistent inflation at 4.2%. Tech stocks are down 3–8% pre-market. Bond prices are falling. What do you do?</div>
+            <div class="trade-btns">
+              <button class="btn btn-green" id="sim-buy">Buy Tech</button>
+              <button class="btn btn-ghost" id="sim-hold">Hold</button>
+              <button class="btn btn-red" id="sim-sell">Sell Tech</button>
+            </div>
+            <div class="ai-coach" id="sim-coach"><strong>🤖 AI Coach</strong><span id="sim-coach-text"></span></div>
+          </div>
+          <div style="text-align:right;margin-bottom:14px">
+            <button class="btn btn-outline" id="sim-next-event" style="display:none;font-size:13px">Next Scenario →</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Current Positions</div>
+          <div class="portfolio-row"><span>AAPL — 2 shares</span><span style="color:var(--muted)">$187.50</span><span class="pnl-pos">+$12.50</span></div>
+          <div class="portfolio-row"><span>VOO — 1 share</span><span style="color:var(--muted)">$432.00</span><span class="pnl-pos">+$28.00</span></div>
+          <div class="portfolio-row"><span>MSFT — 3 shares</span><span style="color:var(--muted)">$399.00</span><span class="pnl-neg">−$18.00</span></div>
+        </div>
+      </div>
+
+      <!-- ── SELECT ── -->
+      <div class="screen" id="screen-select">
+        <div class="page-title">🧭 Select</div>
+        <div class="page-sub">Choose where to invest. The AI tailors pros &amp; cons to your risk profile.</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Profile: <strong>Moderate risk</strong> · Medium horizon · $5k–$25k</div>
+        <div class="option-grid" id="option-grid">
+          <div class="option-card" data-id="ETF">
+            <div class="option-icon">📊</div>
+            <div class="option-name">ETF</div>
+            <div><span class="risk-badge risk-low">Low Risk</span></div>
+            <div class="option-desc">Diversified funds tracking indexes. Low cost, low maintenance.</div>
+            <div class="pros-cons">
+              <div class="pro-item">Low fees</div>
+              <div class="pro-item">Diversified</div>
+              <div class="con-item">Market-rate returns only</div>
+              <div class="con-item">No big upside</div>
+            </div>
+          </div>
+          <div class="option-card" data-id="Stocks">
+            <div class="option-icon">📈</div>
+            <div class="option-name">Individual Stocks</div>
+            <div><span class="risk-badge risk-high">High Risk</span></div>
+            <div class="option-desc">Direct ownership in companies. Higher upside &amp; downside.</div>
+            <div class="pros-cons">
+              <div class="pro-item">High return potential</div>
+              <div class="pro-item">Full flexibility</div>
+              <div class="con-item">Single-stock risk</div>
+              <div class="con-item">Requires research</div>
+            </div>
+          </div>
+          <div class="option-card" data-id="Bonds">
+            <div class="option-icon">🏛️</div>
+            <div class="option-name">Bonds</div>
+            <div><span class="risk-badge risk-low">Low Risk</span></div>
+            <div class="option-desc">Fixed-income government or corporate debt instruments.</div>
+            <div class="pros-cons">
+              <div class="pro-item">Stable income</div>
+              <div class="pro-item">Capital preservation</div>
+              <div class="con-item">Low returns</div>
+              <div class="con-item">Inflation risk</div>
+            </div>
+          </div>
+          <div class="option-card" data-id="REITs">
+            <div class="option-icon">🏢</div>
+            <div class="option-name">REITs</div>
+            <div><span class="risk-badge risk-med">Medium Risk</span></div>
+            <div class="option-desc">Real Estate Investment Trusts. Dividends from property income.</div>
+            <div class="pros-cons">
+              <div class="pro-item">High dividends</div>
+              <div class="pro-item">Real asset exposure</div>
+              <div class="con-item">Rate sensitive</div>
+              <div class="con-item">Illiquid</div>
+            </div>
+          </div>
+          <div class="option-card" data-id="Index Funds">
+            <div class="option-icon">🌐</div>
+            <div class="option-name">Index Funds</div>
+            <div><span class="risk-badge risk-low">Low Risk</span></div>
+            <div class="option-desc">Passively managed funds mirroring indexes like the S&amp;P 500.</div>
+            <div class="pros-cons">
+              <div class="pro-item">Proven long-term returns</div>
+              <div class="pro-item">Tax efficient</div>
+              <div class="con-item">No outperformance</div>
+              <div class="con-item">Market downside exposure</div>
+            </div>
+          </div>
+          <div class="option-card" data-id="Crypto">
+            <div class="option-icon">🪙</div>
+            <div class="option-name">Crypto</div>
+            <div><span class="risk-badge risk-high">High Risk</span></div>
+            <div class="option-desc">Decentralised digital assets. Extremely volatile.</div>
+            <div class="pros-cons">
+              <div class="pro-item">Asymmetric upside</div>
+              <div class="pro-item">24/7 market</div>
+              <div class="con-item">Extreme volatility</div>
+              <div class="con-item">Regulatory risk</div>
+            </div>
+          </div>
+        </div>
+        <div class="select-bar">
+          <div class="select-status" id="select-status">Select an option above to continue</div>
+          <button class="btn btn-primary" id="select-invest-btn" style="display:none">Start Investing →</button>
+        </div>
+      </div>
+
+      <!-- ── INVEST ── -->
+      <div class="screen" id="screen-invest">
+        <div class="page-title">📈 Invest</div>
+        <div class="page-sub">Real portfolio management. Paper mode is active — no real money at risk.</div>
+        <!-- populated by applySelectionToInvest() when navigating from Select -->
+        <div id="invest-selection-banner" style="display:none;background:var(--purple-light);border:1px solid #ddd6fe;border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;align-items:center;gap:10px;">
+          <span style="font-size:18px" id="invest-sel-icon"></span>
+          <div>
+            <div style="font-weight:700;margin-bottom:2px" id="invest-sel-title"></div>
+            <div style="color:var(--muted);font-size:12px" id="invest-sel-sub"></div>
+          </div>
+          <button class="btn btn-ghost" style="margin-left:auto;font-size:11.5px;padding:4px 10px" id="invest-change-sel">Change →</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span class="mode-pill mode-paper" id="mode-pill">● PAPER MODE</span>
+          <span style="font-size:12px;color:var(--muted)">Switch to live requires identity verification</span>
+          <button class="btn btn-ghost" style="margin-left:auto;font-size:12px;padding:4px 12px" id="toggle-live-btn">Switch to Live ↗</button>
+        </div>
+        <div class="grid3" style="margin-bottom:14px">
+          <div class="stat-box"><div class="stat-val">$12,340</div><div class="stat-lbl">Portfolio Value</div></div>
+          <div class="stat-box"><div class="stat-val" style="color:var(--green)">+$340 (2.8%)</div><div class="stat-lbl">Total Return</div></div>
+          <div class="stat-box"><div class="stat-val" id="invest-cash">$4,200</div><div class="stat-lbl">Cash Available</div></div>
+        </div>
+        <div class="grid2">
+          <div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-title">Search Ticker</div>
+              <div class="ticker-search">
+                <input id="ticker-input" type="text" placeholder="e.g. AAPL, VOO, MSFT" value="VOO" />
+                <button class="btn btn-outline" id="ticker-search-btn">Search</button>
+              </div>
+              <div class="ticker-result show" id="ticker-result">
+                <div class="ticker-header">
+                  <div><div class="ticker-name">VOO — Vanguard S&amp;P 500 ETF</div><div style="font-size:12px;color:var(--muted)">NYSE Arca · ETF · Expense ratio 0.03%</div></div>
+                  <div style="text-align:right"><div class="ticker-price">$432.80</div><div style="font-size:12px;color:var(--green)">+1.2% today</div></div>
+                </div>
+                <div style="font-size:12px;color:var(--muted)">52-week: $385–$450 &nbsp;·&nbsp; AUM: $1.1T &nbsp;·&nbsp; Yield: 1.3%</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">Place Order</div>
+              <div class="order-row"><label>Symbol</label><input type="text" value="VOO" id="order-symbol" readonly /></div>
+              <div class="order-row"><label>Type</label><select id="order-type"><option>Market</option><option>Limit</option></select></div>
+              <div class="order-row"><label>Shares</label><input id="shares-input" type="number" value="2" min="1" /></div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Estimated total: <strong id="order-total">$865.60</strong></div>
+              <button class="btn btn-green" id="place-order-btn">Review Order →</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Portfolio Positions</div>
+            <div class="portfolio-row"><span><strong>VOO</strong> · 5 shares</span><span style="color:var(--muted)">$432.80</span><span class="pnl-pos">+$184</span></div>
+            <div class="portfolio-row"><span><strong>AAPL</strong> · 3 shares</span><span style="color:var(--muted)">$187.50</span><span class="pnl-pos">+$21</span></div>
+            <div class="portfolio-row"><span><strong>MSFT</strong> · 2 shares</span><span style="color:var(--muted)">$399.00</span><span class="pnl-neg">−$14</span></div>
+            <div class="portfolio-row"><span><strong>VTI</strong> · 4 shares</span><span style="color:var(--muted)">$243.00</span><span class="pnl-pos">+$149</span></div>
+            <div class="divider"></div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Allocation</div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>ETFs (VOO, VTI)</span><span>61%</span></div>
+            <div class="mastery-bar"><div class="mastery-fill" style="width:61%;background:var(--green)"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin:6px 0 3px"><span>Stocks (AAPL, MSFT)</span><span>39%</span></div>
+            <div class="mastery-bar"><div class="mastery-fill" style="width:39%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ALERTS ── -->
+      <div class="screen" id="screen-alerts">
+        <div class="page-title">🔔 Alerts</div>
+        <div class="page-sub">AI-generated portfolio alerts and action recommendations.</div>
+        <div class="card">
+          <div class="alert-item">
+            <div class="unseen-dot"></div>
+            <div class="alert-icon">🔴</div>
+            <div class="alert-text">
+              <div class="alert-headline">AAPL down 6.2% — Earnings miss</div>
+              <div class="alert-rec">Apple reported EPS of $1.53 vs $1.72 expected. Consider reviewing your position size or averaging down over the recovery period.</div>
+              <div style="margin-top:4px"><span class="alert-learn-link" data-screen="learn">Learn: EPS &amp; Earnings Surprises →</span></div>
+              <div class="alert-time">Today, 9:34 AM</div>
+            </div>
+          </div>
+          <div class="alert-item">
+            <div class="unseen-dot"></div>
+            <div class="alert-icon">🟡</div>
+            <div class="alert-text">
+              <div class="alert-headline">VOO up 15.8% since purchase</div>
+              <div class="alert-rec">Your VOO position has gained over 15%. Consider rebalancing your allocation or letting it ride — your 60% ETF target is currently at 61%.</div>
+              <div class="alert-time">Yesterday, 4:02 PM</div>
+            </div>
+          </div>
+          <div class="alert-item">
+            <div class="alert-icon">🔵</div>
+            <div class="alert-text">
+              <div class="alert-headline">MSFT earnings report due in 3 days</div>
+              <div class="alert-rec">Microsoft reports Q3 earnings Thursday. Analysts expect strong Azure cloud growth. Review your position before the announcement.</div>
+              <div style="margin-top:4px"><span class="alert-learn-link" data-screen="learn">Learn: Earnings Calendar →</span></div>
+              <div class="alert-time">2 days ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PROFILE ── -->
+      <div class="screen" id="screen-profile">
+        <div class="page-title">👤 Profile</div>
+        <div class="page-sub">Account settings and investment preferences.</div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">Personal Info</div>
+            <div class="fg" style="margin-top:8px"><label>Email</label><input type="email" value="demo@finai.app" readonly style="background:var(--surface)" /></div>
+            <div class="fg"><label>Member since</label><input type="text" value="October 2026" readonly style="background:var(--surface)" /></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Investment Profile</div>
+            <div class="fg" style="margin-top:8px">
+              <label>Risk Tolerance</label>
+              <select style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;font-size:13px">
+                <option>Conservative (1)</option><option selected>Moderate (3)</option><option>Aggressive (5)</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Investment Horizon</label>
+              <select style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;font-size:13px">
+                <option>Short (&lt; 2 years)</option><option selected>Medium (2–7 years)</option><option>Long (7+ years)</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Initial Capital Range</label>
+              <select style="width:100%;padding:7px;border:1px solid var(--border);border-radius:5px;font-size:13px">
+                <option>Under $5k</option><option selected>$5k – $25k</option><option>$25k – $100k</option><option>Over $100k</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-wide" id="save-profile-btn">Save Profile</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TRUST LOG ── -->
+      <div class="screen" id="screen-trustlog">
+        <div class="page-title">🛡️ Trust Log</div>
+        <div class="page-sub">Full audit trail of every AI response — confidence tiers, sources, and challenge outcomes.</div>
+        <div class="tl-summary" id="tl-summary">No AI messages yet. Send a chat message or make a trade decision to populate the log.</div>
+        <div class="tl-filter-bar">
+          <div class="tl-filter active" data-filter="all">All</div>
+          <div class="tl-filter" data-filter="challenged">Challenged</div>
+          <div class="tl-filter" data-filter="unverifiable">Unverifiable</div>
+          <div class="tl-filter" data-filter="verified">Verified only</div>
+        </div>
+        <div id="tl-list"></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- CHALLENGE PANEL -->
+<div id="challenge-panel">
+  <div class="cp-header">
+    <span class="cp-title">🔍 Fact-Check Claims</span>
+    <span class="cp-close" id="cp-close">✕</span>
+  </div>
+  <div class="cp-body" id="cp-body"></div>
+</div>
+
+<!-- CLAIM TOOLTIP -->
+<div class="claim-tip" id="claim-tip"></div>
+
+<!-- AI BUBBLE -->
+<div id="ai-bubble">
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">🤖 FinAI Assistant <span class="chat-close" id="chat-close">✕</span></div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="msg ai">Hi! Ask me anything about investing, terms, or your portfolio.</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask me anything…" />
+      <button class="chat-send" id="chat-send-btn">↑</button>
+    </div>
+  </div>
+  <button class="bubble-btn" id="bubble-btn">🤖</button>
+</div>
+
+<!-- ORDER CONFIRM MODAL -->
+<div class="overlay" id="order-overlay">
+  <div class="modal">
+    <div class="modal-title">Review Order</div>
+    <div class="modal-body" id="order-modal-body"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" id="order-cancel">Cancel</button>
+      <button class="btn btn-green" id="order-confirm">Confirm Buy</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE SWITCH MODAL -->
+<div class="overlay" id="live-overlay">
+  <div class="modal">
+    <div class="modal-title">⚠️ Switch to Live Trading?</div>
+    <div class="modal-body">Switching to <strong>live mode</strong> means real money is at risk. In the full app this requires:<br><br>1. KYC identity verification<br>2. Linking your Alpaca live account<br>3. An explicit risk acknowledgement<br><br>This feature is locked in the prototype.</div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" id="live-cancel">Keep Paper Mode</button>
+      <button class="btn btn-red" id="live-confirm" disabled style="opacity:.5;cursor:not-allowed">Go Live (locked)</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE SAVED MODAL -->
+<div class="overlay" id="profile-overlay">
+  <div class="modal">
+    <div class="modal-title">✅ Profile Saved</div>
+    <div class="modal-body">Your risk preferences have been updated. In the full app, this re-personalises all AI recommendations and adjusts the pros/cons in the Select module to match your new profile.</div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" id="profile-ok">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEXT TERM MODAL -->
+<div class="overlay" id="nextterm-overlay">
+  <div class="modal">
+    <div class="modal-title">📚 Coming Up: Liquidity</div>
+    <div class="modal-body">You've made progress on P/E Ratio and Volatility. The full app will now surface <strong>Liquidity</strong> as your next term — chosen because you have a VOO position and ETF liquidity is directly relevant to your portfolio.<br><br>Complete the quiz above to unlock it here.</div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" id="nextterm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 1: Claim Classification Data Model
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CLAIM_DB = {
+  'S&P 500': {
+    key: 'sp500-10pct',
+    confidence: 'verified',
+    category: 'statistic',
+    reason: 'Long-run average supported by Robert Shiller CAPE data (1871–present) and Vanguard research. Note: past performance does not guarantee future results.',
+    sources: [
+      { label: 'Vanguard — Long-term stock returns', url: 'https://investor.vanguard.com/investor-resources-education/education/model-portfolio-allocation' },
+      { label: 'Shiller Online Data (Yale)', url: 'http://www.econ.yale.edu/~shiller/data.htm' },
+    ],
+  },
+  '~10%': {
+    key: 'sp500-10pct',
+    confidence: 'verified',
+    category: 'statistic',
+    reason: 'Approximate long-run nominal annual return of broad US equity market. Inflation-adjusted real return is ~7%. Past performance caveat applies.',
+    sources: [
+      { label: 'Vanguard — Long-term stock returns', url: 'https://investor.vanguard.com/investor-resources-education/education/model-portfolio-allocation' },
+      { label: 'Shiller Online Data (Yale)', url: 'http://www.econ.yale.edu/~shiller/data.htm' },
+    ],
+  },
+  'time in the market': {
+    key: 'time-vs-timing',
+    confidence: 'uncertain',
+    category: 'general-principle',
+    reason: 'True on average over long horizons, but depends heavily on entry valuations and time horizon. Not guaranteed for all periods.',
+    sources: [
+      { label: 'Vanguard — Dollar-cost averaging study', url: 'https://institutional.vanguard.com/content/dam/inst/vanguard-has/insights-pdfs/lump-sum-dollar-cost-averaging.pdf' },
+      { label: 'Investopedia — Market timing', url: 'https://www.investopedia.com/articles/investing/050913/market-timing-tips-every-investor.asp' },
+    ],
+  },
+  'rate hikes compress': {
+    key: 'rate-hike-pe',
+    confidence: 'verified',
+    category: 'general-principle',
+    reason: 'Standard DCF theory: higher discount rates reduce present value of future earnings, compressing equity multiples. Widely documented by CFA Institute and academic finance.',
+    sources: [
+      { label: 'CFA Institute — Equity Valuation', url: 'https://www.cfainstitute.org/en/membership/professional-development/refresher-readings/discounted-dividend-valuation' },
+      { label: 'Federal Reserve — Rate decisions', url: 'https://www.federalreserve.gov/monetarypolicy.htm' },
+    ],
+  },
+  'diversif': {
+    key: 'diversification',
+    confidence: 'verified',
+    category: 'general-principle',
+    reason: 'Modern Portfolio Theory (Markowitz, 1952) demonstrates that combining uncorrelated assets reduces portfolio variance without proportionally reducing expected return.',
+    sources: [
+      { label: 'SEC — Investor Bulletin: Diversification', url: 'https://www.sec.gov/oiea/investor-alerts-bulletins/ib_portfoliodiversification' },
+      { label: 'Investopedia — Diversification', url: 'https://www.investopedia.com/terms/d/diversification.asp' },
+    ],
+  },
+  'higher volatility': {
+    key: 'volatility-reward',
+    confidence: 'uncertain',
+    category: 'general-principle',
+    reason: 'Risk-return tradeoff is a core finance principle, but higher volatility does not guarantee higher reward — individual volatile assets can go to zero.',
+    sources: [
+      { label: 'Investopedia — Risk-Return Tradeoff', url: 'https://www.investopedia.com/terms/r/riskreturntradeoff.asp' },
+      { label: 'CFA Institute — Risk and Return', url: 'https://www.cfainstitute.org/en/membership/professional-development/refresher-readings/portfolio-risk-and-return-part-i' },
+    ],
+  },
+  'moderate risk': {
+    key: 'moderate-risk-profile',
+    confidence: 'uncertain',
+    category: 'opinion',
+    reason: 'Asset allocation suitability is highly personal and depends on age, income, goals, and circumstances. This is a generalisation, not personalised advice.',
+    sources: [
+      { label: 'SEC — Assessing Your Risk Tolerance', url: 'https://www.investor.gov/additional-resources/information/youth/teachers-classroom-resources/what-risk' },
+      { label: 'FINRA — Asset Allocation', url: 'https://www.finra.org/investors/learn-to-invest/key-investing-concepts/asset-allocation' },
+    ],
+  },
+  'earnings miss': {
+    key: 'earnings-miss-reaction',
+    confidence: 'uncertain',
+    category: 'general-principle',
+    reason: 'Market reactions to earnings misses vary widely — a miss can be already priced in, or can trigger further selling. Context-dependent.',
+    sources: [
+      { label: 'Investopedia — Earnings Surprise', url: 'https://www.investopedia.com/terms/e/earningssurprise.asp' },
+    ],
+  },
+  'historically': {
+    key: 'historical-claim',
+    confidence: 'uncertain',
+    category: 'general-principle',
+    reason: 'Historical patterns in finance are descriptive, not predictive. Market conditions can structurally change.',
+    sources: [
+      { label: 'SEC — Past Performance', url: 'https://www.sec.gov/investor/pubs/sec-guide-to-savings-and-investing.pdf' },
+    ],
+  },
+  'low fees': {
+    key: 'low-fees-etf',
+    confidence: 'verified',
+    category: 'statistic',
+    reason: 'Vanguard VOO has an expense ratio of 0.03% (as of 2024). Fee impact on long-term returns is well-documented.',
+    sources: [
+      { label: 'Vanguard — VOO Fund Details', url: 'https://investor.vanguard.com/investment-products/etfs/profile/voo' },
+      { label: 'Investopedia — Expense Ratio', url: 'https://www.investopedia.com/terms/e/expenseratio.asp' },
+    ],
+  },
+};
+
+// Patterns to detect claimable phrases — ordered longest-first to avoid partial overlaps
+const CLAIM_RULES = [
+  { pattern: /rate hikes? compress/i,   key: 'rate hikes compress' },
+  { pattern: /higher volatility/i,      key: 'higher volatility' },
+  { pattern: /time in the market/i,     key: 'time in the market' },
+  { pattern: /moderate risk/i,          key: 'moderate risk' },
+  { pattern: /earnings miss/i,          key: 'earnings miss' },
+  { pattern: /S&P\s*500/i,              key: 'S&P 500' },
+  { pattern: /~10%\s*\/?\s*year/i,      key: '~10%' },
+  { pattern: /diversif\w+/i,            key: 'diversif' },
+  { pattern: /low fees?/i,              key: 'low fees' },
+  { pattern: /historically/i,           key: 'historically' },
+];
+
+const SELF_REVIEW_DB = {
+  'sp500-10pct': {
+    outcome: 'confirmed',
+    reviewText: 'Confirmed with qualification: the ~10%/year figure is the nominal arithmetic average annual return of the S&P 500 from 1928–2023 based on Shiller CAPE data. The geometric (compound) average is ~7% nominal, ~4.5% real after inflation. Past performance does not guarantee future results.',
+    primarySourceUrl: 'http://www.econ.yale.edu/~shiller/data.htm',
+  },
+  'time-vs-timing': {
+    outcome: 'qualified',
+    reviewText: 'Qualified: This principle holds true on average across long horizons (15+ years) in most historical periods. However, investors who bought at peak valuations (e.g. late 2000 or late 2021) experienced significantly below-average returns even over a decade. The principle is a useful heuristic, not a guarantee.',
+    primarySourceUrl: 'https://institutional.vanguard.com/content/dam/inst/vanguard-has/insights-pdfs/lump-sum-dollar-cost-averaging.pdf',
+  },
+  'rate-hike-pe': {
+    outcome: 'confirmed',
+    reviewText: 'Confirmed: In DCF (Discounted Cash Flow) models, the risk-free rate is a component of the discount rate. Higher discount rates mechanically reduce the present value of future earnings, compressing P/E multiples. This is standard finance theory and is empirically supported — see Federal Reserve research on the equity risk premium.',
+    primarySourceUrl: 'https://www.cfainstitute.org/en/membership/professional-development/refresher-readings/discounted-dividend-valuation',
+  },
+  'diversification': {
+    outcome: 'confirmed',
+    reviewText: 'Confirmed: Harry Markowitz\'s Modern Portfolio Theory (Nobel Prize 1990) formally proves that combining imperfectly correlated assets reduces portfolio variance. The SEC and FINRA both recommend diversification as a core risk management tool.',
+    primarySourceUrl: 'https://www.sec.gov/oiea/investor-alerts-bulletins/ib_portfoliodiversification',
+  },
+  'volatility-reward': {
+    outcome: 'qualified',
+    reviewText: 'Qualified: The risk-return tradeoff is a general principle of capital markets theory, but it applies at the asset class level — not individual securities. A highly volatile individual stock can lose all value with no upside. This statement is a useful heuristic for diversified portfolios, not a guarantee for individual assets.',
+    primarySourceUrl: 'https://www.investopedia.com/terms/r/riskreturntradeoff.asp',
+  },
+  'moderate-risk-profile': {
+    outcome: 'qualified',
+    reviewText: 'Qualified: Asset allocation recommendations are generalisations. What counts as "reasonable" depends on your specific age, income, emergency fund, time horizon, tax situation, and psychological risk tolerance. This is educational guidance only — not personalised financial advice. Always consult a licensed financial advisor for your situation.',
+    primarySourceUrl: 'https://www.finra.org/investors/learn-to-invest/key-investing-concepts/asset-allocation',
+  },
+  'earnings-miss-reaction': {
+    outcome: 'qualified',
+    reviewText: 'Qualified: Market reactions to earnings misses are highly variable. In efficient markets, if the miss was anticipated, the stock may not fall significantly. In some cases stocks rise after a miss if results beat "whisper numbers." This coaching represents a common-sense framework, not a predictive model.',
+    primarySourceUrl: 'https://www.investopedia.com/terms/e/earningssurprise.asp',
+  },
+  'historical-claim': {
+    outcome: 'qualified',
+    reviewText: 'Qualified: Historical patterns in markets are descriptive of the past but not reliably predictive. Market structures, regulations, interest rate regimes, and geopolitics can change the relationship between historical patterns and future outcomes.',
+    primarySourceUrl: 'https://www.sec.gov/investor/pubs/sec-guide-to-savings-and-investing.pdf',
+  },
+  'low-fees-etf': {
+    outcome: 'confirmed',
+    reviewText: 'Confirmed: Vanguard VOO\'s expense ratio is 0.03% as of 2024, verified on Vanguard\'s official fund page. Research by Vanguard and others consistently shows that lower-cost funds outperform higher-cost peers in the same category over time, all else being equal.',
+    primarySourceUrl: 'https://investor.vanguard.com/investment-products/etfs/profile/voo',
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 1 continued: parseClaimsFromMessage
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function parseClaimsFromMessage(text) {
+  const found = [];
+  const seen = new Set();
+  for (const rule of CLAIM_RULES) {
+    const m = text.match(rule.pattern);
+    if (m) {
+      const dbEntry = CLAIM_DB[rule.key];
+      if (dbEntry && !seen.has(dbEntry.key)) {
+        seen.add(dbEntry.key);
+        found.push({ match: m[0], index: m.index, claim: dbEntry });
+      }
+    }
+  }
+  return found;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 2: renderMessageWithClaims
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let claimCounter = 0;
+const msgTextRegistry = {};
+function renderMessageWithClaims(text) {
+  let result = escHtml(text);
+  const claims = parseClaimsFromMessage(text);
+  let numV = 0, numU = 0, numN = 0;
+
+  // Replace each matched phrase with annotated span (work on escaped text)
+  for (const { claim } of claims) {
+    const conf = claim.confidence;
+    if (conf === 'verified')     numV++;
+    else if (conf === 'uncertain') numU++;
+    else                           numN++;
+
+    const id = 'claim-' + (++claimCounter);
+    const badgeClass = `cbadge cbadge-${conf}`;
+    const symbol = conf === 'verified' ? '✓' : conf === 'uncertain' ? '?' : '!';
+    // Escape the match for regex use
+    const escapedMatch = escHtml(claim.sources[0] ? claim.sources[0].label : '').slice(0,0) + escHtml(text.match(CLAIM_RULES.find(r => CLAIM_DB[r.key] && CLAIM_DB[r.key].key === claim.key)?.pattern || /$/)?.[0] || '');
+    // Build annotated replacement
+    const matchEsc = escHtml(text.match(CLAIM_RULES.find(r => CLAIM_DB[r.key]?.key === claim.key)?.pattern || /$/)?.[0] || '');
+    if (matchEsc) {
+      const replacement = `<span class="claim claim-${conf}" data-claim-id="${id}">${matchEsc}<sup class="${badgeClass}" title="Tap to see source">${symbol}</sup></span>`;
+      result = result.replace(matchEsc, replacement);
+      // store claim data on element after render
+      setTimeout(() => {
+        const el = document.getElementById(id) || document.querySelector(`[data-claim-id="${id}"]`);
+        if (el) {
+          el.addEventListener('click', (e) => { e.stopPropagation(); showClaimTip(e, claim, id); });
+          el.addEventListener('mouseenter', (e) => showClaimTip(e, claim, id));
+          el.addEventListener('mouseleave', hideClaimTip);
+        }
+      }, 50);
+    }
+  }
+
+  const total = numV + numU + numN;
+  const msgId = 'msg-' + (++claimCounter);
+  msgTextRegistry[msgId] = text;
+  const summaryHtml = total > 0
+    ? `<div class="trust-summary">
+        <span class="ts-dot" style="background:var(--green)"></span>${numV} verified
+        <span class="ts-dot" style="background:var(--yellow)"></span>${numU} uncertain
+        <span class="ts-dot" style="background:var(--red)"></span>${numN} unverifiable
+        <span class="factcheck-btn" data-msgid="${msgId}">🔍 Fact-check</span>
+       </div>`
+    : `<div class="trust-summary" style="color:var(--muted)">No flagged claims detected</div>`;
+
+  return `<div class="msg-text">${result}</div>${summaryHtml}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 2: Claim tooltip
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showClaimTip(e, claim, id) {
+  const tip = document.getElementById('claim-tip');
+  const srcHtml = claim.sources.map(s => `<a href="${s.url}" target="_blank">${escHtml(s.label)}</a>`).join('');
+  tip.innerHTML = `
+    <div class="claim-tip-title">${conf2label(claim.confidence)} — ${escHtml(claim.category)}</div>
+    <div class="claim-tip-reason">${escHtml(claim.reason)}</div>
+    <div class="claim-tip-sources">${srcHtml}</div>`;
+  tip.classList.add('show');
+  const rect = e.target.getBoundingClientRect();
+  tip.style.left = Math.min(rect.left, window.innerWidth - 260) + 'px';
+  tip.style.top  = (rect.bottom + 6) + 'px';
+}
+function hideClaimTip() { document.getElementById('claim-tip').classList.remove('show'); }
+function conf2label(c) {
+  return c === 'verified' ? '✅ Verified' : c === 'uncertain' ? '🟡 Uncertain' : '🔴 Unverifiable';
+}
+
+document.addEventListener('click', hideClaimTip);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 3: Challenge Panel
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let currentChallengeText = '';
+let currentChallengeClaims = [];
+
+function openChallengePanel(text) {
+  currentChallengeText = text;
+  currentChallengeClaims = parseClaimsFromMessage(text);
+  const body = document.getElementById('cp-body');
+
+  if (!currentChallengeClaims.length) {
+    body.innerHTML = `<div class="cp-excerpt">${escHtml(text.slice(0,120))}${text.length>120?'…':''}</div><p style="font-size:13px;color:var(--muted)">No verifiable claims detected in this message.</p>`;
+  } else {
+    const rows = currentChallengeClaims.map(({match, claim}, i) => `
+      <div class="claim-row" id="cp-row-${i}">
+        <div class="claim-row-text">"${escHtml(match)}"</div>
+        <div class="claim-row-conf"><span class="c-${claim.confidence[0]}">${conf2label(claim.confidence)}</span> · ${escHtml(claim.category)}</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">${escHtml(claim.reason.slice(0,100))}…</div>
+        <button class="challenge-btn" id="ch-btn-${i}" data-idx="${i}">Challenge this claim</button>
+        <div class="review-result" id="rev-${i}"></div>
+      </div>`).join('');
+    body.innerHTML = `<div class="cp-excerpt">${escHtml(text.slice(0,120))}${text.length>120?'…':''}</div>${rows}`;
+
+    body.querySelectorAll('.challenge-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        runChallenge(idx);
+      });
+    });
+  }
+
+  document.getElementById('challenge-panel').classList.add('open');
+}
+
+function runChallenge(idx) {
+  const btn = document.getElementById(`ch-btn-${idx}`);
+  const rev = document.getElementById(`rev-${idx}`);
+  const claim = currentChallengeClaims[idx].claim;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>AI re-evaluating…';
+
+  setTimeout(() => {
+    const sr = SELF_REVIEW_DB[claim.key];
+    if (!sr) {
+      rev.className = 'review-result show review-qualified';
+      rev.innerHTML = '⚠️ No detailed self-review available for this claim. Please verify via external sources.';
+      btn.textContent = 'Reviewed';
+      return;
+    }
+    const outcomeClass = `review-${sr.outcome}`;
+    const outcomeLabel = sr.outcome === 'confirmed' ? '✅ Confirmed' : sr.outcome === 'qualified' ? '⚠️ Qualified' : '❌ Retracted';
+    rev.className = `review-result show ${outcomeClass}`;
+    rev.innerHTML = `<strong>${outcomeLabel}</strong><br>${escHtml(sr.reviewText)}
+      <div class="review-source"><a href="${sr.primarySourceUrl}" target="_blank">Verify yourself → ${escHtml(sr.primarySourceUrl.replace('https://','').split('/')[0])}</a></div>`;
+    btn.textContent = 'Reviewed';
+
+    // Update audit log entry with challenge outcome
+    logChallenge(claim.key, sr.outcome);
+    recalcTrustScore();
+  }, 900);
+}
+
+document.getElementById('cp-close').addEventListener('click', () => {
+  document.getElementById('challenge-panel').classList.remove('open');
+});
+
+// Wire fact-check buttons (delegated — messages are added dynamically)
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('factcheck-btn')) {
+    e.stopPropagation();
+    const msgId = e.target.dataset.msgid;
+    const txt = msgId ? (msgTextRegistry[msgId] || '') : (currentChallengeText || '');
+    openChallengePanel(txt);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 4: Audit Log
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const AUDIT_LOG = [];
+let tlFilter = 'all';
+
+function logMessage(text, module) {
+  const claims = parseClaimsFromMessage(text);
+  const entry = {
+    id: AUDIT_LOG.length + 1,
+    ts: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+    module,
+    text,
+    claims,
+    challenges: [],
+  };
+  AUDIT_LOG.push(entry);
+  updateTrustBadge();
+  recalcTrustScore();
+  if (document.getElementById('screen-trustlog').classList.contains('active')) renderTrustLog();
+}
+
+function logChallenge(claimKey, outcome) {
+  if (AUDIT_LOG.length) AUDIT_LOG[AUDIT_LOG.length-1].challenges.push({ claimKey, outcome });
+  if (document.getElementById('screen-trustlog').classList.contains('active')) renderTrustLog();
+}
+
+function updateTrustBadge() {
+  const unverifiable = AUDIT_LOG.reduce((n,e) => n + e.claims.filter(c=>c.claim.confidence==='unverifiable').length, 0);
+  const badge = document.getElementById('trust-badge');
+  if (unverifiable > 0) { badge.textContent = unverifiable; badge.style.display = ''; }
+  else badge.style.display = 'none';
+}
+
+function renderTrustLog() {
+  const list = document.getElementById('tl-list');
+  let entries = [...AUDIT_LOG].reverse();
+  if (tlFilter === 'challenged')    entries = entries.filter(e => e.challenges.length > 0);
+  if (tlFilter === 'unverifiable')  entries = entries.filter(e => e.claims.some(c => c.claim.confidence === 'unverifiable'));
+  if (tlFilter === 'verified')      entries = entries.filter(e => e.claims.every(c => c.claim.confidence === 'verified'));
+
+  const totMsg = AUDIT_LOG.length;
+  const totV   = AUDIT_LOG.reduce((n,e) => n + e.claims.filter(c=>c.claim.confidence==='verified').length, 0);
+  const totCh  = AUDIT_LOG.reduce((n,e) => n + e.challenges.length, 0);
+  const totN   = AUDIT_LOG.reduce((n,e) => n + e.claims.filter(c=>c.claim.confidence==='unverifiable').length, 0);
+  document.getElementById('tl-summary').innerHTML =
+    `<span><strong>${totMsg}</strong> messages</span>
+     <span>✅ <strong>${totV}</strong> verified claims</span>
+     <span>🔴 <strong>${totN}</strong> unverifiable</span>
+     <span>🔍 <strong>${totCh}</strong> challenged</span>`;
+
+  if (!entries.length) { list.innerHTML = '<p style="font-size:13px;color:var(--muted)">No entries match this filter.</p>'; return; }
+
+  list.innerHTML = entries.map(e => {
+    const badges = e.claims.map(c => {
+      const dot = c.claim.confidence==='verified'?'var(--green)':c.claim.confidence==='uncertain'?'var(--yellow)':'var(--red)';
+      return `<span style="width:8px;height:8px;border-radius:50%;background:${dot};display:inline-block"></span>`;
+    }).join('');
+    const srcLinks = [...new Set(e.claims.flatMap(c=>c.claim.sources.map(s=>`<a href="${s.url}" target="_blank">${escHtml(s.label)}</a>`)))].join('');
+    return `<div class="tl-item">
+      <div class="tl-item-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span class="tl-module">${escHtml(e.module)}</span>
+        <span class="tl-excerpt">${escHtml(e.text.slice(0,80))}${e.text.length>80?'…':''}</span>
+        <span class="tl-badges">${badges}</span>
+        <span class="tl-ts">${e.ts}</span>
+      </div>
+      <div class="tl-item-body">
+        ${escHtml(e.text)}
+        <div class="tl-sources" style="margin-top:8px">${srcLinks || '<span style="font-size:11px;color:var(--muted)">No sources cited for this message</span>'}</div>
+        ${e.challenges.length ? `<div style="margin-top:6px;font-size:11.5px;color:var(--muted)">Challenged: ${e.challenges.map(c=>`${c.claimKey} → ${c.outcome}`).join(', ')}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.querySelectorAll('.tl-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tl-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tlFilter = btn.dataset.filter;
+    renderTrustLog();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUST LAYER — Sub-Task 5: Global Trust Score + Disclaimer
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function recalcTrustScore() {
+  const allClaims = AUDIT_LOG.flatMap(e => e.claims);
+  const total = allClaims.length;
+  if (!total) return;
+  const v = allClaims.filter(c=>c.claim.confidence==='verified').length;
+  const score = Math.round((v / total) * 100);
+  const chip = document.getElementById('trust-chip');
+  chip.textContent = `🛡️ Trust: ${score}%`;
+  chip.className = 'trust-chip ' + (score>=80?'high':score>=60?'mid':'low');
+}
+
+document.getElementById('trust-chip').addEventListener('click', () => showScreen('trustlog'));
+document.getElementById('disc-close').addEventListener('click', () => {
+  document.getElementById('disclaimer-banner').classList.add('hidden');
+  sessionStorage.setItem('disc-dismissed','1');
+});
+if (sessionStorage.getItem('disc-dismissed')) {
+  document.getElementById('disclaimer-banner').classList.add('hidden');
+}
+
+// ─── Screen routing ──────────────────────────────────────────────────────────
+const SCREENS = ['dashboard','learn','simulate','select','invest','alerts','profile','trustlog'];
+const SCREEN_META = {
+  dashboard: ['Dashboard',       'Welcome back, Jane'],
+  learn:     ['Learn',           'Master finance terms'],
+  simulate:  ['Simulate',        'Paper trading practice'],
+  select:    ['Select',          'Choose your investment type'],
+  invest:    ['Invest',          'Paper portfolio active'],
+  alerts:    ['Alerts',          '3 unread notifications'],
+  profile:   ['Profile',         'Account settings'],
+  trustlog:  ['Trust Log',       'AI claim audit trail'],
+};
+
+function showScreen(name) {
+  SCREENS.forEach(s => {
+    document.getElementById('screen-'+s).classList.toggle('active', s===name);
+    document.querySelector(`[data-screen="${s}"]`).classList.toggle('active', s===name);
+  });
+  document.getElementById('topbar-title').textContent = SCREEN_META[name][0];
+  document.getElementById('topbar-sub').textContent   = SCREEN_META[name][1];
+  document.getElementById('screen-'+name).scrollTop = 0;
+  if (name === 'trustlog') renderTrustLog();
+}
+
+// Wire sidebar nav items
+document.querySelectorAll('.nav-item[data-screen]').forEach(el => {
+  el.addEventListener('click', () => showScreen(el.dataset.screen));
+});
+
+// Topbar alerts button
+document.getElementById('topbar-alerts').addEventListener('click', () => showScreen('alerts'));
+
+// Dashboard quick-nav cards
+document.getElementById('dash-simulate').addEventListener('click', () => showScreen('simulate'));
+document.getElementById('dash-learn-card').addEventListener('click', () => showScreen('learn'));
+document.getElementById('dash-alert-card').addEventListener('click', () => showScreen('alerts'));
+
+// Alert "Learn" links navigate to learn
+document.querySelectorAll('.alert-learn-link').forEach(el => {
+  el.addEventListener('click', () => showScreen(el.dataset.screen));
+});
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+function enterApp(email) {
+  document.getElementById('auth-wall').classList.add('hidden');
+  // personalise avatar/name from email
+  const name = email.includes('@') ? email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g, c=>c.toUpperCase()) : 'User';
+  const initials = name.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-email').textContent = email;
+  document.getElementById('user-avatar').textContent = initials;
+  showScreen('dashboard');
+}
+
+document.getElementById('tab-login').addEventListener('click', () => {
+  document.getElementById('tab-login').classList.add('active');
+  document.getElementById('tab-register').classList.remove('active');
+  document.getElementById('form-login').classList.add('active');
+  document.getElementById('form-register').classList.remove('active');
+  document.getElementById('auth-err').style.display='none';
+});
+document.getElementById('tab-register').addEventListener('click', () => {
+  document.getElementById('tab-register').classList.add('active');
+  document.getElementById('tab-login').classList.remove('active');
+  document.getElementById('form-register').classList.add('active');
+  document.getElementById('form-login').classList.remove('active');
+  document.getElementById('auth-err').style.display='none';
+});
+
+document.getElementById('btn-login').addEventListener('click', () => {
+  const e = document.getElementById('l-email').value.trim();
+  const p = document.getElementById('l-pw').value;
+  const err = document.getElementById('auth-err');
+  if (e==='demo@finai.app' && p==='demo123') { enterApp(e); }
+  else { err.style.display='block'; }
+});
+document.getElementById('l-pw').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('btn-login').click(); });
+
+document.getElementById('btn-register').addEventListener('click', () => {
+  const e  = document.getElementById('r-email').value.trim();
+  const p  = document.getElementById('r-pw').value;
+  const p2 = document.getElementById('r-pw2').value;
+  const err = document.getElementById('auth-err');
+  err.style.display='none';
+  if (!e||!p) { err.textContent='Please fill all fields.'; err.style.display='block'; return; }
+  if (p!==p2) { err.textContent='Passwords do not match.'; err.style.display='block'; return; }
+  enterApp(e);
+});
+
+document.getElementById('btn-logout').addEventListener('click', () => {
+  document.getElementById('auth-wall').classList.remove('hidden');
+  document.getElementById('l-email').value = 'demo@finai.app';
+  document.getElementById('l-pw').value = 'demo123';
+  document.getElementById('auth-err').style.display='none';
+});
+
+// ─── Learn: quiz engine ──────────────────────────────────────────────────────
+function setupQuiz(optsId, feedbackId, onPass) {
+  let done = false;
+  document.querySelectorAll(`#${optsId} .quiz-opt`).forEach(opt => {
+    opt.addEventListener('click', () => {
+      if (done) return;
+      done = true;
+      const fb = document.getElementById(feedbackId);
+      document.querySelectorAll(`#${optsId} .quiz-opt`).forEach(o => {
+        o.classList.add('locked');
+        o.classList.add(o.dataset.v==='correct' ? 'correct' : 'wrong');
+      });
+      fb.classList.add('show');
+      if (opt.dataset.v === 'correct') {
+        fb.className = 'quiz-feedback show ok';
+        fb.textContent = '✓ Correct! Mastery +20 points.';
+        if (onPass) setTimeout(onPass, 600);
+      } else {
+        fb.className = 'quiz-feedback show bad';
+        fb.textContent = '✗ Not quite — review the definition above and try again next time.';
+      }
+    });
+  });
+}
+
+// P/E quiz — on pass, unlock Volatility term
+setupQuiz('quiz-opts-pe', 'quiz-fb-pe', () => {
+  const vol = document.getElementById('term-vol');
+  vol.style.opacity = '1';
+  vol.style.pointerEvents = 'auto';
+  vol.style.transition = 'opacity .5s';
+  document.getElementById('gloss-pe').className = 'tag tag-green';
+  document.getElementById('gloss-pe').textContent = '✓ P/E Ratio';
+});
+
+// Volatility quiz — on pass, update glossary
+setupQuiz('quiz-opts-vol', 'quiz-fb-vol', () => {
+  document.getElementById('gloss-vol').className = 'tag tag-green';
+  document.getElementById('gloss-vol').textContent = '✓ Volatility';
+});
+
+document.getElementById('learn-next-btn').addEventListener('click', () => {
+  document.getElementById('nextterm-overlay').classList.add('show');
+});
+document.getElementById('nextterm-ok').addEventListener('click', () => {
+  document.getElementById('nextterm-overlay').classList.remove('show');
+});
+
+// ─── Simulate: coaching ──────────────────────────────────────────────────────
+const SIM_SCENARIOS = [
+  {
+    title: '📰 Market Event: Fed raises rates by 0.5%',
+    body:  'The Federal Reserve announced a surprise 0.5% rate hike, citing inflation at 4.2%. Tech stocks are down 3–8% pre-market. Bond prices are falling. What do you do?',
+    buy:   'Buying the dip on rate-hike fear can pay off if you believe the move is already priced in. But rate hikes compress P/E multiples — so your upside may be capped short-term. Consider sizing small.',
+    hold:  'Holding is rational. Rate hikes hurt high-growth tech, but long-term fundamentals haven\'t changed. Avoid panic-selling. Monitor the next Fed meeting for signals.',
+    sell:  'Reducing risk is reasonable under uncertainty. If you sell, consider rotating into short-duration bonds or dividend stocks that benefit from higher rates. Have a re-entry plan.',
+  },
+  {
+    title: '📰 Market Event: Inflation cools to 2.1% — below target',
+    body:  'CPI data shows inflation has dropped to 2.1%, below the Fed\'s 2% target. Futures are rallying +2%. Rate cuts are being priced in for Q3. What do you do?',
+    buy:   'Good instinct — lower inflation and expected rate cuts reduce the discount rate for future earnings, making growth stocks more attractive. A momentum buy here is supported by macro data.',
+    hold:  'Holding in a rally is fine if your allocation is already where you want it. Don\'t chase performance. Reassess once the rate-cut news is fully absorbed by the market.',
+    sell:  'Selling into a rally locks in gains, but you risk missing the continuation. If your thesis is intact and you\'re not over-allocated, this is likely premature.',
+  },
+  {
+    title: '📰 Company Event: AAPL misses earnings by 12%',
+    body:  'Apple reported EPS of $1.53 vs analyst consensus of $1.72 — a 12% miss. The stock is down 6% in after-hours trading. You own 3 shares. What do you do?',
+    buy:   'Averaging down on an earnings miss is a contrarian move. It makes sense only if the miss is one-off (not structural) and you believe in Apple\'s long-term moat. Check whether guidance was revised down.',
+    hold:  'Waiting for clarity is wise after an earnings miss. Knee-jerk sells often leave money on the table. Give management a quarter to show the miss was temporary.',
+    sell:  'Cutting the position limits further downside. If the miss reflects a deteriorating competitive position (not just a rough quarter), reducing exposure is sensible risk management.',
+  },
+];
+
+let simScenarioIdx = 0;
+let simCoachDone = false;
+
+function loadScenario(idx) {
+  const s = SIM_SCENARIOS[idx % SIM_SCENARIOS.length];
+  document.getElementById('sim-event-title').textContent = s.title;
+  document.getElementById('sim-event-body').textContent  = s.body;
+  document.getElementById('sim-coach').classList.remove('show');
+  document.getElementById('sim-next-event').style.display = 'none';
+  simCoachDone = false;
+}
+
+function simTrade(action) {
+  if (simCoachDone) return;
+  simCoachDone = true;
+  const s = SIM_SCENARIOS[simScenarioIdx % SIM_SCENARIOS.length];
+  const coachText = s[action];
+  const coachEl = document.getElementById('sim-coach');
+  const coachTextEl = document.getElementById('sim-coach-text');
+  coachTextEl.innerHTML = renderMessageWithClaims(coachText);
+  coachEl.classList.add('show');
+  document.getElementById('sim-next-event').style.display = 'inline-block';
+  logMessage(coachText, 'Simulate');
+  // wire factcheck buttons in coach area
+  coachEl.querySelectorAll('.factcheck-btn').forEach(btn => {
+    btn.addEventListener('click', () => openChallengePanel(coachText));
+  });
+}
+
+document.getElementById('sim-buy').addEventListener('click',  () => simTrade('buy'));
+document.getElementById('sim-hold').addEventListener('click', () => simTrade('hold'));
+document.getElementById('sim-sell').addEventListener('click', () => simTrade('sell'));
+
+document.getElementById('sim-next-event').addEventListener('click', () => {
+  simScenarioIdx++;
+  loadScenario(simScenarioIdx);
+  // scroll simulate screen to top so the new scenario is visible
+  document.getElementById('screen-simulate').scrollTop = 0;
+});
+
+// ─── Select: option cards ────────────────────────────────────────────────────
+// Maps each asset class to a suggested starter ticker, description, and icon
+const ASSET_DEFAULTS = {
+  'ETF':          { ticker:'VOO',  icon:'📊', name:'VOO — Vanguard S&P 500 ETF',         sub:'Low-cost ETF · Expense ratio 0.03% · Diversified US large-cap exposure' },
+  'Stocks':       { ticker:'AAPL', icon:'📈', name:'AAPL — Apple Inc.',                   sub:'Suggested starter stock · Large-cap technology · High liquidity' },
+  'Bonds':        { ticker:'BND',  icon:'🏛️', name:'BND — Vanguard Total Bond Market ETF', sub:'Broad US bond exposure · Low risk · Current yield ~4.1%' },
+  'REITs':        { ticker:'VNQ',  icon:'🏢', name:'VNQ — Vanguard Real Estate ETF',      sub:'Diversified REIT exposure · Dividend yield ~3.8% · Rate sensitive' },
+  'Index Funds':  { ticker:'VTI',  icon:'🌐', name:'VTI — Vanguard Total Stock Market ETF',sub:'Total US market · 3,800+ stocks · Expense ratio 0.03%' },
+  'Crypto':       { ticker:'BTC',  icon:'🪙', name:'BTC — Bitcoin',                        sub:'⚠️ Extremely volatile · Not available in paper mode · High risk' },
+};
+
+function applySelectionToInvest(assetClass) {
+  const d = ASSET_DEFAULTS[assetClass];
+  if (!d) return;
+
+  // Show the banner
+  const banner = document.getElementById('invest-selection-banner');
+  banner.style.display = 'flex';
+  document.getElementById('invest-sel-icon').textContent  = d.icon;
+  document.getElementById('invest-sel-title').textContent = 'You selected: ' + assetClass + ' — suggested starting position:';
+  document.getElementById('invest-sel-sub').textContent   = d.name + ' · ' + d.sub;
+
+  // Pre-fill ticker search input and order symbol
+  document.getElementById('ticker-input').value  = d.ticker;
+  document.getElementById('order-symbol').value  = d.ticker;
+
+  // Update the ticker result card to match
+  const result = document.getElementById('ticker-result');
+  result.querySelector('.ticker-name').textContent = d.name;
+  result.classList.add('show');
+
+  // Reset order total for the new ticker
+  const shares = parseInt(document.getElementById('shares-input').value) || 1;
+  document.getElementById('shares-input').value = 1;
+  document.getElementById('order-total').textContent = '$' + (432.80).toFixed(2); // default price; real app fetches live
+}
+
+let selectedInvestment = null;
+document.querySelectorAll('.option-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedInvestment = card.dataset.id;
+    document.getElementById('select-status').textContent = selectedInvestment + ' selected';
+    const btn = document.getElementById('select-invest-btn');
+    btn.textContent = 'Start Investing with ' + selectedInvestment + ' →';
+    btn.style.display = 'inline-block';
+  });
+});
+document.getElementById('select-invest-btn').addEventListener('click', () => {
+  applySelectionToInvest(selectedInvestment);
+  showScreen('invest');
+});
+document.getElementById('invest-change-sel').addEventListener('click', () => showScreen('select'));
+
+// ─── Invest: order flow ──────────────────────────────────────────────────────
+document.getElementById('ticker-search-btn').addEventListener('click', () => {
+  document.getElementById('ticker-result').classList.add('show');
+});
+document.getElementById('shares-input').addEventListener('input', () => {
+  const n = parseInt(document.getElementById('shares-input').value) || 0;
+  document.getElementById('order-total').textContent = '$' + (n * 432.80).toFixed(2);
+});
+document.getElementById('place-order-btn').addEventListener('click', () => {
+  const shares = document.getElementById('shares-input').value;
+  const total  = document.getElementById('order-total').textContent;
+  const cash   = (4200 - parseFloat(total.replace('$',''))).toFixed(2);
+  document.getElementById('order-modal-body').innerHTML =
+    'You are about to place a <strong>Market Buy</strong> for <strong>'+shares+' shares of VOO</strong> at approx. $432.80/share.<br><br>' +
+    'Estimated total: <strong>'+total+'</strong><br>' +
+    'Cash after trade: <strong>$'+cash+'</strong><br><br>' +
+    'This is <strong>paper trading</strong> — no real money involved.';
+  document.getElementById('order-overlay').classList.add('show');
+});
+document.getElementById('order-cancel').addEventListener('click', () => document.getElementById('order-overlay').classList.remove('show'));
+document.getElementById('order-confirm').addEventListener('click', () => {
+  document.getElementById('order-overlay').classList.remove('show');
+  const shares = document.getElementById('shares-input').value;
+  const total  = parseFloat(document.getElementById('order-total').textContent.replace('$',''));
+  // update displayed cash
+  const cur = parseFloat(document.getElementById('invest-cash').textContent.replace('$','').replace(',',''));
+  document.getElementById('invest-cash').textContent = '$' + Math.max(0, cur - total).toLocaleString('en-US', {minimumFractionDigits:0});
+  document.getElementById('sim-invested').textContent = '$' + (1820 + total).toFixed(0);
+});
+
+document.getElementById('toggle-live-btn').addEventListener('click', () => document.getElementById('live-overlay').classList.add('show'));
+document.getElementById('live-cancel').addEventListener('click',   () => document.getElementById('live-overlay').classList.remove('show'));
+document.getElementById('live-confirm').addEventListener('click',  () => document.getElementById('live-overlay').classList.remove('show'));
+
+// ─── Profile save ────────────────────────────────────────────────────────────
+document.getElementById('save-profile-btn').addEventListener('click', () => document.getElementById('profile-overlay').classList.add('show'));
+document.getElementById('profile-ok').addEventListener('click', () => document.getElementById('profile-overlay').classList.remove('show'));
+
+// ─── AI Chat bubble ──────────────────────────────────────────────────────────
+const AI_REPLIES = [
+  "Based on your moderate risk profile, ETFs and Index Funds are a solid core — broad diversification, low fees.",
+  "The S&P 500 has returned ~10%/year historically. Past performance doesn't guarantee future results, but consistency matters.",
+  "Your AAPL position is down after the earnings miss. Consider whether the long-term thesis still holds before reacting.",
+  "Time in the market beats timing the market. Stick to your plan and review quarterly.",
+  "Your portfolio is 61% ETFs — that's a reasonable allocation for a moderate risk profile.",
+  "Rate hike environments tend to favour value stocks and short-duration bonds over high-growth tech.",
+  "Volatility isn't just risk — it's also opportunity. A well-diversified portfolio can weather short-term swings.",
+  "The P/E ratio compares price to earnings. A P/E of 20 means you pay $20 for every $1 of annual earnings.",
+];
+let replyIdx = 0;
+
+function sendChat() {
+  const inp  = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  const msgs = document.getElementById('chat-messages');
+  const u = document.createElement('div'); u.className='msg user'; u.textContent=text; msgs.appendChild(u);
+  inp.value = '';
+  msgs.scrollTop = msgs.scrollHeight;
+  const currentModule = document.getElementById('topbar-title').textContent;
+  setTimeout(() => {
+    const replyText = AI_REPLIES[replyIdx % AI_REPLIES.length]; replyIdx++;
+    const wrapper = document.createElement('div'); wrapper.className='msg ai';
+    wrapper.innerHTML = renderMessageWithClaims(replyText);
+    msgs.appendChild(wrapper); msgs.scrollTop=msgs.scrollHeight;
+    logMessage(replyText, currentModule + ' · Chat');
+    // wire factcheck buttons
+    wrapper.querySelectorAll('.factcheck-btn').forEach(btn => {
+      btn.addEventListener('click', () => openChallengePanel(replyText));
+    });
+  }, 700);
+}
+
+document.getElementById('bubble-btn').addEventListener('click', () => document.getElementById('chat-panel').classList.toggle('open'));
+document.getElementById('chat-close').addEventListener('click', () => document.getElementById('chat-panel').classList.remove('open'));
+document.getElementById('chat-send-btn').addEventListener('click', sendChat);
+document.getElementById('chat-input').addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
+
+// ─── Close any overlay on background click ──────────────────────────────────
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if(e.target===ov) ov.classList.remove('show'); });
+});
+</script>
+</body>
+</html>
