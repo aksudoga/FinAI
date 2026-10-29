@@ -1,2 +1,2 @@
 # FinAI
-prototype for AI investment assistant
+prototype for AI investment assistant for IBM Hackaton
